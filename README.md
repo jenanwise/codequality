@@ -15,7 +15,7 @@ Then, run:
 
 to see what checkers are available and installed on your machine. For now,
 codequality only knows about a few checkers, and it will use any that are
-available on your machine.
+available.
 
 ## Usage details
 
