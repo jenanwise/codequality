@@ -1,4 +1,47 @@
 #!/usr/bin/env python
+"""
+Simple code checking metatool.
+
+codequality is glue around multiple external code checking tools. Its goal
+is easy integration with editing environments and version control (scm) tools.
+
+All output follows a simple parseable format:
+
+    filename:linenumber:columnnumber: message
+
+where the column number is optional (some external tools don't provide it).
+This makes it easy to integrate with editing environments.
+
+Examples:
+
+    codequality foo.py bar.js
+
+Theo above run all relevant available external checkers against foo.py and
+bar.js.  Relevance is determined currently by file extensions -- checkers are
+registered against known file extensions.  See --list-checkers.
+
+    codequality
+
+Theo above check all files it can under the current working directory.
+
+    codequality --ignore "*junk/*"
+
+Theo above will check all files under the current working directory
+except those that match the fnmatch pattern "*junk/*".
+
+    codequality --scm git
+
+Using the --scm option will pass responsibility of determining files
+to check to your scm of choice (currently only git is supported).
+In the case of the git handler, this means all modified files in the
+working copy.
+
+    codequality --scm git --rev HEAD
+
+All scm handlers can take a --rev flag. In the case of git, the above
+will check all relevant files created or modified (not deleted) in the
+last-committed patch. This works well as a post-commit hook.
+"""
 import commands
 import fnmatch
 import optparse
@@ -148,7 +191,7 @@ class CodeQuality(object):
 
 def main():
     parser = optparse.OptionParser(
-        usage="%prog [--options] [<path>..]",
+        usage="%%prog [--options] [<path>..]\n\n%s" % __doc__.strip(),
     )
     parser.add_option(
         '--scm', dest='scmhandler', default=None,
@@ -157,7 +200,7 @@ def main():
     )
     parser.add_option(
         '-i', '--ignore', dest='ignores',
-        action='append', default=[],
+        action='append', default=[], metavar='PATTERN',
         help='fnmatch pattern to ignore.',
     )
     parser.add_option(
@@ -169,7 +212,7 @@ def main():
     parser.add_option(
         '--list-checkers', dest='list_checkers',
         action='store_true', default=False,
-        help='List installed checkers and their external tools.'
+        help='List installed checkers and their external tools.',
     )
     parser.add_option(
         '--show-checker', dest='show_checker',

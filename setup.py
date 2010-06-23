@@ -6,8 +6,8 @@ setup(
     name='codequality',
     version='0.1-dev',
     url='http://github.com/oakwise/codequality',
-    description='Simple command line code checking metatool',
-    long_description=''.join(open('README')),
+    description='Simple code checking metatool',
+    long_description=''.join(open('README.md')),
     keywords='codequality',
     packages=find_packages('.'),
     entry_points={
