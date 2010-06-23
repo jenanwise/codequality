@@ -5,7 +5,7 @@ from setuptools import setup
 setup(
     name='codequality',
     version='0.1-dev',
-    url='http://github.com/oakwise/codequality',
+    url='http://github.com/jenanwise/codequality',
     description='Simple code checking metatool',
     long_description=''.join(open('README.md')),
     keywords='codequality',
