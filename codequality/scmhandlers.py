@@ -83,6 +83,7 @@ class GitHandler(SCMHandler):
     GIT_COMMIT_RE = re.compile(GIT_COMMIT_FMT)
     GIT_DIFF_SUMMARY_RE = re.compile(
         r'^ (?P<type>\w+) mode (?P<mode>\w+) (?P<path>.+)')
+    GIT_SUBMODULE_MODE = 160000
 
     def _file_contents(self, path, rev=None):
         """
@@ -173,6 +174,16 @@ class GitHandler(SCMHandler):
 
         return result
 
+    def _mode(self, path, rev):
+        """
+        Get git "mode" of a path at a given rev.
+
+        The mode is git's numeric way of identifying the type of an object in
+        its tree.
+        """
+        return int(
+            self._git_cmd('ls-tree "%s" "%s"' % (rev, path)).split(' ')[0])
+
     def _srcs(self, paths, path_types, rev):
         """
         Yield (filename, path to src of filename at rev) for relevant paths.
@@ -180,8 +191,12 @@ class GitHandler(SCMHandler):
         for path in paths:
             type = path_types.get(path, None)
 
+            # Ignore submodules
+            if self._mode(path, rev) == self.GIT_SUBMODULE_MODE:
+                continue
+
             # No type means it was a regular change
-            if type in (None, 'delete', 'create', 'rename'):
+            if type in (None, 'create', 'rename'):
                 yield (
                     path,
                     _temp_filename(self._file_contents(path, rev=rev)))
