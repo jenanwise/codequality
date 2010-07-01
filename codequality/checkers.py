@@ -90,7 +90,7 @@ class NodelintChecker(Checker):
     """
     Checker integration with the nodelint.js tool.
 
-    Sannis' fork is recommended: http://github.com/Sannis/nodelint-js
+    tav's repo is recommended: http://github.com/tav/nodelint.js
     """
     tool = 'nodelint.js'
 
@@ -100,7 +100,7 @@ class NodelintChecker(Checker):
     tool_err_re = re.compile(
         r"\x1b\[1m(?P<filename>[^,]+), "
         r"line (?P<lineno>\d+), character "
-        r"(?P<colno>\d+), :\x1b\[0m (?P<msg>.*)")
+        r"(?P<colno>\d+)(?:, )?:\x1b\[0m (?P<msg>.*)")
 
 
 @register(filetypes=('py',))
