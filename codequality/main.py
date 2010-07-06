@@ -84,8 +84,18 @@ class CodeQuality(object):
             self.options.scmhandler,
             scmhandlers.NoSCMHandler)()
         errors_exist = False
+
         for filename, src in scmhandler.srcs_to_check(
                 paths, rev=self.options.rev):
+
+            if self.options.verbose:
+                if src == filename:
+                    print >> sys.stderr, \
+                        'Checking "%s"...' % (filename,)
+                else:
+                    print >> sys.stderr, \
+                        'Checking "%s" using path "%s"...' % (filename, src)
+
             errors_exist = self._check(filename, src) or errors_exist
         return errors_exist
 
@@ -226,6 +236,11 @@ def main():
         help='Revision to pass to scm tool. Used with --scm. '
             'If not specified, the current pending changes will '
             'be used, as determined by the scm tool specified.',
+    )
+    parser.add_option(
+        '--verbose', dest='verbose',
+        action='store_true', default=False,
+        help='Prints extra information to stderr.',
     )
 
     options, paths = parser.parse_args()
