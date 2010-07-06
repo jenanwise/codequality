@@ -61,9 +61,6 @@ class GitHandler(SCMHandler):
 
     When used, and no paths are provided, paths to check will be automatically
     determined by either a specified revision or the current working directory.
-
-    All paths are always limited to those in `git ls-files`, so untracked and
-    `gitignore`ed files will never be checked.
     """
     # Begin public API
 
@@ -150,8 +147,6 @@ class GitHandler(SCMHandler):
                 % (commit_range,)).splitlines()
             prefix = self._git_cmd('rev-parse --show-prefix')
             paths = [path[len(prefix):] for path in paths]
-        paths = [path for path in paths if path in set(
-            self._git_cmd('ls-files').splitlines())]
         return paths
 
     def _get_path_types(self, commit_range):
