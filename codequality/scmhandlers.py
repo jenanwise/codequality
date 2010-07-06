@@ -183,12 +183,23 @@ class GitHandler(SCMHandler):
         """
         Yield (filename, path to src of filename at rev) for relevant paths.
         """
-        for path in paths:
-            type = path_types.get(path, None)
+        if not rev:
+            submodules = set(
+                line.split()[1] for line in
+                self._git_cmd('submodule status').splitlines())
 
-            # Ignore submodules
-            if self._mode(path, rev) == self.GIT_SUBMODULE_MODE:
-                continue
+        for path in paths:
+            # Ignore submodules.
+            # For the working tree, we can use `git submodule status`.
+            # For older revs, we have to use `git ls-tree` to get the mode.
+            if not rev:
+                if path in submodules:
+                    continue
+            else:
+                if self._mode(path, rev) == self.GIT_SUBMODULE_MODE:
+                    continue
+
+            type = path_types.get(path, None)
 
             # No type means it was a regular change
             if type in (None, 'create', 'rename'):
