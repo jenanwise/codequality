@@ -61,18 +61,28 @@ class GitHandler(SCMHandler):
 
     When used, and no paths are provided, paths to check will be automatically
     determined by either a specified revision or the current working directory.
+
+    Note that only paths underneath the current working directory will be used,
+    even for historical revisions.
     """
     # Begin public API
 
-    def srcs_to_check(self, paths, rev=None):
+    def srcs_to_check(self, limit_paths, rev=None):
         rev = self._resolve_rev(rev)
-        commit_range = '%s^ %s' % (rev, rev) if rev else 'HEAD'
 
-        paths = self._paths_to_check(paths, commit_range=commit_range)
-        path_types = self._get_path_types(commit_range=commit_range)
+        relative_paths = self._add_and_modified_in_rev(rev) \
+            if rev else self._add_and_modified_in_working_copy()
 
-        for filename, src in self._srcs(paths, path_types, rev):
-            yield filename, src
+        if limit_paths:
+            relative_paths = set(relative_paths).intersection(limit_paths)
+
+        for path in sorted(relative_paths):
+            if rev:
+                yield (
+                    path,
+                    _temp_filename(self._file_contents(path, rev=rev)))
+            else:
+                yield (path, path)
 
     # End public API
 
@@ -82,6 +92,69 @@ class GitHandler(SCMHandler):
         r'^ (?P<type>\w+) mode (?P<mode>\w+) (?P<path>.+)')
     GIT_SUBMODULE_MODE = 160000
 
+    def _add_and_modified_in_working_copy(self):
+        inside_work_tree = \
+            self._git_cmd('rev-parse --is-inside-work-tree') == 'true'
+        if not inside_work_tree:
+            raise GitError('Not inside a work tree. Use --rev option.')
+
+        result = []
+
+        prefix_from_repo_root = self._git_cmd('rev-parse --show-prefix')
+
+        # `git status --porcelain` gives output in format "XY PATH",
+        # where X and Y refer to staged vs unstaged statuses.
+        #
+        # However, we don't care about staged vs unstaged. We just want to know
+        # which files have been changed or created, so for simplicity we use
+        # `git status` to ask "what has possibly changed" and then ask the
+        # filesystem which files from that list still exist.
+        #
+        # Note that we use "." at the end of the status command to limit
+        # paths to those under the current working directory.
+        cmd = 'status --porcelain --untracked-files=all .'
+        status_output = self._git_cmd(cmd)
+
+        for line in status_output.splitlines():
+            path = line[3:]
+
+            # For renames, we just care about new filename
+            if ' -> ' in path:
+                path = path.split(' -> ', 1)[1]
+
+            path = path[len(prefix_from_repo_root):]
+
+            if os.path.isfile(path):
+                result.append(path)
+
+        return result
+
+    def _add_and_modified_in_rev(self, rev):
+        result = []
+
+        cmd = ' '.join((
+            'whatchanged',
+            '-r',
+            '--max-count=1',
+            '--ignore-submodules',
+            '--pretty=format:""',
+            '--abbrev=40',  # no truncating commit ids
+            '--diff-filter="AM"',
+            '--name-status',
+            '--relative',
+            '--no-renames',  # rename = D + A, but we only care about A
+            rev,
+        ))
+        whatchanged_output = self._git_cmd(cmd).strip()
+
+        for line in whatchanged_output.splitlines():
+            status, path = line.split(None, 1)
+            if status not in "AM":
+                raise ValueError('Unexpected "%s" output: %s' % (cmd, line))
+            result.append(path)
+
+        return result
+
     def _file_contents(self, path, rev=None):
         """
         Get content of `path` at `rev`.
@@ -89,21 +162,19 @@ class GitHandler(SCMHandler):
         If `rev` is None, the current working version is returned.
         """
         rev = self._resolve_rev(rev)
+        prefix_from_repo_root = self._git_cmd('rev-parse --show-prefix')
         if not rev:
             with open(path) as fp:
                 result = ''.join(fp)
             return result
         else:
-            path = self._path_from_repo_root(path)
+            path = os.path.join(prefix_from_repo_root, path)
+            result = self._git_cmd('show %s:"%s"' % (rev, path))
             # `git show` messes with blank lines at ends of files,
             # so we have to append our own for non-empty files
-            result = self._git_cmd('show %s:"%s"' % (rev, path))
             if result:
                 result = result + '\n'
             return result
-
-    def _path_from_repo_root(self, path):
-        return os.path.join(self._git_cmd('rev-parse --show-prefix'), path)
 
     def _resolve_rev(self, rev):
         """
@@ -128,92 +199,6 @@ class GitHandler(SCMHandler):
         if status:
             raise GitError('"%s" failed:\n%s' % (cmd, output))
         return output
-
-    def _paths_to_check(self, paths, commit_range):
-        """
-        Collect paths to check if none specified manually.
-
-        commit_range: string that can be passed as args to `git diff` and
-        similar commands to represent a commit range, e.g. "HEAD" or
-        "af939d0c^^ af939d0c".
-        """
-        # `git diff --name-only` gives paths relative to the root
-        # of the repository, but we want paths relative to the current
-        # directory.  Making "." the path arg to `git diff` will limit
-        # paths to everything under the current directory, and then
-        # we can just strip the prefix from each path.
-        if not paths:
-            paths = self._git_cmd('diff --name-only %s -- .'
-                % (commit_range,)).splitlines()
-            prefix = self._git_cmd('rev-parse --show-prefix')
-            paths = [path[len(prefix):] for path in paths]
-        return paths
-
-    def _get_path_types(self, commit_range):
-        """
-        Collect a map of path to modification type.
-
-        Modification type is a string 'create', 'delete', 'rename', etc, parsed
-        from the output of `git diff --summary`.
-        """
-        result = {}
-        summary = self._git_cmd(
-            'diff --summary %s' % (commit_range,)).splitlines()
-        for line in summary:
-            match = self.GIT_DIFF_SUMMARY_RE.match(line)
-            if not match:
-                raise GitError(
-                    'unexpected `git diff --summary` output: "%s"' % line)
-            match_dict = match.groupdict()
-            result[match_dict['path']] = match_dict['type']
-
-        return result
-
-    def _mode(self, path, rev):
-        """
-        Get git "mode" of a path at a given rev.
-
-        The mode is git's numeric way of identifying the type of an object in
-        its tree.
-        """
-        return int(
-            self._git_cmd('ls-tree "%s" "%s"' % (rev, path)).split(' ')[0])
-
-    def _srcs(self, paths, path_types, rev):
-        """
-        Yield (filename, path to src of filename at rev) for relevant paths.
-        """
-        if not rev:
-            submodules = set(
-                line.split()[1] for line in
-                self._git_cmd('submodule status').splitlines())
-
-        for path in paths:
-            # Ignore submodules.
-            # For the working tree, we can use `git submodule status`.
-            # For older revs, we have to use `git ls-tree` to get the mode.
-            if not rev:
-                if path in submodules:
-                    continue
-            else:
-                if self._mode(path, rev) == self.GIT_SUBMODULE_MODE:
-                    continue
-
-            type = path_types.get(path, None)
-
-            # No type means it was a regular change
-            if type in (None, 'create', 'rename'):
-                yield (
-                    path,
-                    _temp_filename(self._file_contents(path, rev=rev)))
-
-            # Don't need to check deletes
-            elif type == 'delete':
-                continue
-
-            else:
-                raise ValueError('Unexpected change type: %s' % type)
-
 
 _files_to_cleanup = []
 
