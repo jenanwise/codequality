@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='codequality',
-    version='0.1-dev',
+    version='0.2-dev',
     url='http://github.com/jenanwise/codequality',
     description='Simple code checking metatool',
     long_description=''.join(open('README.md')),
