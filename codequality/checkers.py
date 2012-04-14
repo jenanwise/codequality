@@ -88,11 +88,11 @@ class Checker(object):
 @register(filetypes=('js',))
 class NodelintChecker(Checker):
     """
-    Checker integration with the nodelint.js tool.
+    Checker integration with the nodelint tool.
 
-    tav's repo is recommended: http://github.com/tav/nodelint.js
+    tav's repo is recommended: http://github.com/tav/nodelint
     """
-    tool = 'nodelint.js'
+    tool = 'nodelint'
 
     # Default output format bolds the first part of the line using
     # bash escapes -- hence the "\x1b\[1m" etc.
