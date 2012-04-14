@@ -1,4 +1,5 @@
-import commands
+from subprocess import PIPE
+from subprocess import Popen
 import re
 
 
@@ -32,11 +33,11 @@ class Checker(object):
 
     # Optional
     break_on_tool_re_mismatch = False
-    tool_arg_str = ''
+    tool_args = []
 
-    def check(self, path):
+    def check(self, paths):
         """
-        Return list of error dicts for all found errors in path.
+        Return list of error dicts for all found errors in paths.
 
         The default implementation expects `tool`, and `tool_err_re` to be
         defined.
@@ -46,29 +47,33 @@ class Checker(object):
             a groupdict with at least "filename", "lineno", "colno",
             and "msg" keys. See example checkers.
         """
-        if not path:
+        if not paths:
             return ()
 
-        cmd = self.tool
-        if self.tool_arg_str:
-            cmd += ' %s' % self.tool_arg_str
-
-        return self._check_std(path, cmd)
+        cmd_pieces = [self.tool]
+        cmd_pieces.extend(self.tool_args)
+        return self._check_std(paths, cmd_pieces)
 
     # End public API
 
-    def _check_std(self, path, cmd):
+    def _check_std(self, paths, cmd_pieces):
         """
-        Run `cmd` as a check on `path`.
+        Run `cmd` as a check on `paths`.
         """
-        status, output = commands.getstatusoutput('%s %s' % (cmd, path))
+        cmd_pieces.extend(paths)
+        process = Popen(cmd_pieces, stdout=PIPE, stderr=PIPE)
+        out, err = process.communicate()
+        lines = out.strip().splitlines() + err.strip().splitlines()
         result = []
-        for line in output.splitlines():
+        for line in lines:
             match = self.tool_err_re.match(line)
             if not match:
                 if self.break_on_tool_re_mismatch:
                     raise ValueError(
-                        'Unexpected `%s %s` output: %r' % (cmd, path, line))
+                        'Unexpected `%s` output: %r' % (
+                            ' '.join(cmd_pieces),
+                            paths,
+                            line))
                 continue
             vals = match.groupdict()
 
@@ -113,7 +118,7 @@ class PEP8Checker(Checker):
     Checker integration with the pep8 tool.
     """
     tool = 'pep8'
-    tool_arg_str = '--repeat'
+    tool_args = ['--repeat']
 
     # TODO: handle weird filenames
     tool_err_re = re.compile(r"""

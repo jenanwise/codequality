@@ -85,24 +85,38 @@ class CodeQuality(object):
             scmhandlers.NoSCMHandler)()
         errors_exist = False
 
-        for filename, src in scmhandler.srcs_to_check(
+        checker_to_loc_to_filename = {}
+        for filename, location in scmhandler.srcs_to_check(
                 paths, rev=self.options.rev):
 
-            if self.options.verbose:
-                if src == filename:
-                    print >> sys.stderr, \
-                        'Checking "%s"...' % (filename,)
-                else:
-                    print >> sys.stderr, \
-                        'Checking "%s" using path "%s"...' % (filename, src)
+            checker_classes = self._relevant_checkers(filename)
+            for checker_class in checker_classes:
+                loc_to_filename = checker_to_loc_to_filename.setdefault(
+                    checker_class, {})
+                loc_to_filename[location] = filename
 
-            errors_exist = self._check(filename, src) or errors_exist
+        for checker_class, loc_to_filename \
+                in checker_to_loc_to_filename.iteritems():
+            locations = loc_to_filename.keys()
+
+            if self.options.verbose:
+                for location, filename in loc_to_filename.iteritems():
+                    print '[%s] "%s"%s' % (
+                        checker_class.__name__,
+                        filename,
+                        '' if location == filename
+                            else (' using "%s"' % location))
+
+            errs = checker_class().check(locations)
+            for err in errs:
+                errors_exist = True
+                err['filename'] = loc_to_filename[err['filename']]
+                print self.out_fmt % err
         return errors_exist
 
     # End public API
 
     out_fmt = '%(filename)s:%(lineno)d:%(colno)s: %(msg)s'
-    out_fmt_with_checker = '%(checker)s:' + out_fmt
 
     def _relevant_checkers(self, path):
         """
@@ -174,30 +188,6 @@ class CodeQuality(object):
                 return True
         return False
 
-    def _check(self, filename, src_path):
-        """
-        Check filename using src_path against all relevant code checkers.
-
-        Returns True iff any errors were found.
-        """
-        errors_exist = False
-        checker_classes = self._relevant_checkers(filename)
-        for checker_class in checker_classes:
-            checker = checker_class()
-            errs = checker.check(src_path)
-            for err in errs:
-                errors_exist = True
-                if self.options.list_matching_files:
-                    print filename
-                    return True
-                err.update(
-                    checker=checker.__class__.__name__,
-                    filename=filename)
-                fmt = self.out_fmt_with_checker \
-                    if self.options.show_checker else self.out_fmt
-                print fmt % err
-        return errors_exist
-
 
 def main():
     parser = optparse.OptionParser(
@@ -214,21 +204,9 @@ def main():
         help='fnmatch pattern to ignore.',
     )
     parser.add_option(
-        '--list', dest='list_matching_files',
-        action='store_true', default=False,
-        help='Just list filenames that have errors, '
-            'not the errors themselves.',
-    )
-    parser.add_option(
         '--list-checkers', dest='list_checkers',
         action='store_true', default=False,
         help='List installed checkers and their external tools.',
-    )
-    parser.add_option(
-        '--show-checker', dest='show_checker',
-        action='store_true', default=False,
-        help='Show checker used at beginning of each error '
-            'line, before the filename.',
     )
     parser.add_option(
         '-r', '--rev', dest='rev',
