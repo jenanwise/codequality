@@ -93,14 +93,18 @@ class NodelintChecker(Checker):
     tav's repo is recommended: http://github.com/tav/nodelint
     """
     tool = 'nodelint'
+    tool_args = ['--reporter=vim']
 
-    # Default output format bolds the first part of the line using
-    # bash escapes -- hence the "\x1b\[1m" etc.
-    # TODO: handle weird filenames
-    tool_err_re = re.compile(
-        r"\x1b\[1m(?P<filename>[^,]+), "
-        r"line (?P<lineno>\d+), character "
-        r"(?P<colno>\d+)(?:, )?:\x1b\[0m (?P<msg>.*)")
+    # For some reason the vim reporter output doesn't put a space after the
+    # filename. Example:
+    #
+    # foo.jsline 1 column 1 Error: 'x' was used before it was defined. x = y
+    tool_err_re = re.compile(r"""
+        (?P<filename>.+)
+        line\ (?P<lineno>\d+)
+        \ column\ (?P<colno>\d+)
+        \ (?P<msg>.*)
+    """, re.VERBOSE)
 
 
 @register(filetypes=('py',))
