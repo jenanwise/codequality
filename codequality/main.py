@@ -174,10 +174,12 @@ class CodeQuality(object):
         for clazz in sorted(classes):
             status, _ = commands.getstatusoutput('which %s' % clazz.tool)
             result = 'missing' if status else 'installed'
-            print '%s%s%s' % (
+            print '%s%s%s%s' % (
                 clazz.__name__.ljust(max_width + 1),
                 clazz.tool.ljust(max_width + 1),
-                result)
+                result.ljust(max_width + 1),
+                clazz.get_version(),
+            )
 
     def _should_ignore(self, path):
         """
