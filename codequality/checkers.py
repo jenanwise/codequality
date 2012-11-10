@@ -54,6 +54,19 @@ class Checker(object):
         cmd_pieces.extend(self.tool_args)
         return self._check_std(paths, cmd_pieces)
 
+    @classmethod
+    def get_version(self):
+        """
+        Return the version number of the tool.
+        """
+        cmd_pieces = [self.tool, '--version']
+        process = Popen(cmd_pieces, stdout=PIPE, stderr=PIPE)
+        out, err = process.communicate()
+        if err:
+            return ''
+        else:
+            return out.splitlines()[0].strip()
+
     # End public API
 
     def _check_std(self, paths, cmd_pieces):

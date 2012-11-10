@@ -105,7 +105,7 @@ class CodeQuality(object):
                         checker_class.__name__,
                         filename,
                         '' if location == filename
-                            else (' using "%s"' % location))
+                        else (' using "%s"' % location))
 
             errs = checker_class().check(locations)
             for err in errs:
@@ -174,10 +174,12 @@ class CodeQuality(object):
         for clazz in sorted(classes):
             status, _ = commands.getstatusoutput('which %s' % clazz.tool)
             result = 'missing' if status else 'installed'
-            print '%s%s%s' % (
+            print '%s%s%s%s' % (
                 clazz.__name__.ljust(max_width + 1),
                 clazz.tool.ljust(max_width + 1),
-                result)
+                result.ljust(max_width + 1),
+                clazz.get_version(),
+            )
 
     def _should_ignore(self, path):
         """
@@ -196,7 +198,7 @@ def main():
     parser.add_option(
         '--scm', dest='scmhandler', default=None,
         help='SCM to use to choose which lines and files to check. '
-            'Currently only "git" is supported.',
+             'Currently only "git" is supported.',
     )
     parser.add_option(
         '-i', '--ignore', dest='ignores',
@@ -212,8 +214,8 @@ def main():
         '-r', '--rev', dest='rev',
         action='store', default=None,
         help='Revision to pass to scm tool. Used with --scm. '
-            'If not specified, the current pending changes will '
-            'be used, as determined by the scm tool specified.',
+             'If not specified, the current pending changes will '
+             'be used, as determined by the scm tool specified.',
     )
     parser.add_option(
         '--verbose', dest='verbose',
