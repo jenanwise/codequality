@@ -156,3 +156,14 @@ class PyflakesChecker(Checker):
         (?:(?P<colno>\d+):)?
         \ (?P<msg>.*)
     """, re.VERBOSE)
+
+    @classmethod
+    def get_version(cls):
+        cmd_pieces = [
+            'python', '-c', "import pyflakes; print pyflakes.__version__"]
+        process = Popen(cmd_pieces, stdout=PIPE, stderr=PIPE)
+        out, err = process.communicate()
+        if err:
+            return ''
+        else:
+            return out.splitlines()[0].strip()
