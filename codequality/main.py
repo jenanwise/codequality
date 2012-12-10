@@ -99,6 +99,8 @@ class CodeQuality(object):
                 in checker_to_loc_to_filename.iteritems():
             locations = loc_to_filename.keys()
 
+            # TODO: this should only be printed if the checker is actually
+            # on the path and being used.
             if self.options.verbose:
                 for location, filename in loc_to_filename.iteritems():
                     print '[%s] "%s"%s' % (
@@ -107,7 +109,19 @@ class CodeQuality(object):
                         '' if location == filename
                         else (' using "%s"' % location))
 
-            errs = checker_class().check(locations)
+            # We allow missing checkers by design. Users can use
+            # `--list-checkers` to verify that all desired checkers are
+            # installed and on their PATH.
+            #
+            # Popen raises OSError when the executable can't be found on the
+            # path. It would be nice if we didn't repeatedly call out to
+            # missing checkers, but this try/except is a quick fix to allow
+            # a subset of checkers to work without breaking existing contracts.
+            try:
+                errs = checker_class().check(locations)
+            except OSError:
+                continue
+
             for err in errs:
                 errors_exist = True
                 err['filename'] = loc_to_filename[err['filename']]
@@ -174,11 +188,12 @@ class CodeQuality(object):
         for clazz in sorted(classes):
             status, _ = commands.getstatusoutput('which %s' % clazz.tool)
             result = 'missing' if status else 'installed'
+            version = '' if status else clazz.get_version()
             print '%s%s%s%s' % (
                 clazz.__name__.ljust(max_width + 1),
                 clazz.tool.ljust(max_width + 1),
                 result.ljust(max_width + 1),
-                clazz.get_version(),
+                version,
             )
 
     def _should_ignore(self, path):
