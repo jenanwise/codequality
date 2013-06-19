@@ -89,6 +89,9 @@ class CodeQuality(object):
         for filename, location in scmhandler.srcs_to_check(
                 paths, rev=self.options.rev):
 
+            if self._should_ignore(filename):
+                continue
+
             checker_classes = self._relevant_checkers(filename)
             for checker_class in checker_classes:
                 loc_to_filename = checker_to_loc_to_filename.setdefault(
