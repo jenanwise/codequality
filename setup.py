@@ -9,6 +9,7 @@ setup(
     description='Simple code checking metatool',
     long_description=''.join(open('README.rst')),
     keywords='codequality',
+    license='MIT',
     packages=find_packages('.'),
     entry_points={
         'console_scripts': (
