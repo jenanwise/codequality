@@ -1,6 +1,8 @@
 from subprocess import PIPE
 from subprocess import Popen
+import csv
 import re
+import StringIO
 
 
 checkers = {}
@@ -167,3 +169,30 @@ class PyflakesChecker(Checker):
             return ''
         else:
             return out.splitlines()[0].strip()
+
+
+@register(filetypes=('coffee',))
+class CoffeeLintChecker(Checker):
+    """
+    Checker integration with the coffeelint tool.
+    """
+    tool = 'coffeelint'
+
+    def check(self, paths):
+        if not paths:
+            return ()
+
+        cmd_pieces = [self.tool, '--csv']  # Use CSV output
+        cmd_pieces.extend(paths)
+        process = Popen(cmd_pieces, stdout=PIPE, stderr=PIPE)
+        out, err = process.communicate()
+        output_rows = csv.DictReader(StringIO.StringIO(out))
+        return [
+            {
+                'filename': row['path'],
+                'lineno': int(row['lineNumber']),
+                'colno': '',
+                'msg': row['message'],
+            }
+            for row in output_rows
+        ]
