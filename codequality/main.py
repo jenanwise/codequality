@@ -141,7 +141,7 @@ class CodeQuality(object):
 
         TODO: currently this is based off the file extension.  We would like to
         honor magic bits as well, so that python binaries, shell scripts, etc
-        but we're not guarunteed that `path` currently exists on the filesystem
+        but we're not guaranteed that `path` currently exists on the filesystem
         -- e.g. when version control for historical revs is used.
         """
         _, ext = os.path.splitext(path)
@@ -153,10 +153,10 @@ class CodeQuality(object):
         Resolve paths into a set of filenames (no directories) to check.
 
         External tools will handle directories as arguments differently, so for
-        consistancy we just want to pass them filenames.
+        consistency we just want to pass them filenames.
 
         This method will recursively walk all directories and filter out
-        any paths that mach self.options.ignores.
+        any paths that match self.options.ignores.
         """
         result = set()
         for path in paths:
