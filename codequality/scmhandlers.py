@@ -67,11 +67,12 @@ class GitHandler(SCMHandler):
     """
     # Begin public API
 
-    def srcs_to_check(self, limit_paths, rev=None):
+    def srcs_to_check(self, limit_paths, rev=None, ignore_untracked=False):
         rev = self._resolve_rev(rev)
 
         relative_paths = self._add_and_modified_in_rev(rev) \
-            if rev else self._add_and_modified_in_working_copy()
+            if rev else self._add_and_modified_in_working_copy(
+                ignore_untracked)
 
         if limit_paths:
             relative_paths = set(relative_paths).intersection(limit_paths)
@@ -92,7 +93,7 @@ class GitHandler(SCMHandler):
         r'^ (?P<type>\w+) mode (?P<mode>\w+) (?P<path>.+)')
     GIT_SUBMODULE_MODE = 160000
 
-    def _add_and_modified_in_working_copy(self):
+    def _add_and_modified_in_working_copy(self, ignore_untracked=False):
         inside_work_tree = \
             self._git_cmd('rev-parse --is-inside-work-tree') == 'true'
         if not inside_work_tree:
@@ -112,7 +113,12 @@ class GitHandler(SCMHandler):
         #
         # Note that we use "." at the end of the status command to limit
         # paths to those under the current working directory.
-        cmd = 'status --porcelain --untracked-files=all .'
+        if ignore_untracked:
+            untracked = "no"
+        else:
+            untracked = "all"
+        cmd = 'status --porcelain --untracked-files={untracked} .'.format(
+                untracked=untracked)
         status_output = self._git_cmd(cmd)
 
         for line in status_output.splitlines():
