@@ -87,7 +87,8 @@ class CodeQuality(object):
 
         checker_to_loc_to_filename = {}
         for filename, location in scmhandler.srcs_to_check(
-                paths, rev=self.options.rev):
+                paths, rev=self.options.rev,
+                ignore_untracked=self.options.ignore_untracked):
 
             if self._should_ignore(filename):
                 continue
@@ -239,6 +240,11 @@ def main():
         '--verbose', dest='verbose',
         action='store_true', default=False,
         help='Prints extra information to stderr.',
+    )
+    parser.add_option(
+        '--ignore-untracked', dest='ignore_untracked',
+        action='store_true', default=False,
+        help='Ignore untracked files (only applicable if using scm).',
     )
 
     options, paths = parser.parse_args()
